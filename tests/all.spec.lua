@@ -4,7 +4,7 @@ local escambo, string, table =
 local format, concat, charsets, encodings, languages, mediatypes =
   string.format, table.concat, escambo.charsets, escambo.encodings,
   escambo.languages, escambo.mimetypes
-
+--
 local charsets_tests = {
   {nil, {'utf-8'}, {'utf-8'}}, {'utf-8', {'utf-8'}, {'utf-8'}},
   {'*', {'utf-8'}, {'utf-8'}}, {'utf-8', {'utf-8', 'ISO-8859-1'}, {'utf-8'}},
@@ -22,8 +22,8 @@ describe('charset tests', function()
     for i = 1, #charsets_tests do
       it(
         format(
-          'should return `%s` for accept-charset `%s` with provided charset `%s`', 
-          (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ') 
+          '#%d - should return `%s` for accept-charset `%s` with provided charset `%s`', 
+          i, (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ') 
             or tostring(charsets_tests[i][3])),
           tostring(charsets_tests[i][1]),
           (charsets_tests[i][2] and concat(charsets_tests[i][2], ', ') 
@@ -48,9 +48,7 @@ describe('charset tests', function()
   it('should not return a charset with q = 0', function()
     assert.are.same(charsets('utf-8;q=0', {'utf-8'}), {})
   end)
-
 end)
-
 
 local encodings_conf = {
   {nil, {'identity', 'gzip'}, {'identity'}},
@@ -63,6 +61,7 @@ local encodings_conf = {
   {'*, compress;q=0', {'gzip', 'compress'}, {'gzip'}},
   {'gzip;q=0.8, compress', nil, {'compress', 'gzip', 'identity'}},
   {'*, compress', {'gzip', 'compress'}, {'compress', 'gzip'}},
+  {'gzip, compress;q=0', {'compress', 'identity'}, {'identity'}},
   {
     'gzip;q=0.8, identity;q=0.5, *;q=0.3',
     {'identity', 'gzip', 'compress'},
@@ -77,8 +76,8 @@ describe('encoding tests', function()
     for i = 1, #encodings_conf do
       it(
         format(
-          'should return `%s` for accept-encoding `%s` with provided encoding `%s`', 
-          (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ') 
+          '#%d - should return `%s` for accept-encoding `%s` with provided encoding `%s`',
+          i, (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ') 
             or tostring(encodings_conf[i][3])),
           tostring(encodings_conf[i][1]),
           (encodings_conf[i][2] and concat(encodings_conf[i][2], ', ') 
@@ -111,7 +110,7 @@ describe('encoding tests', function()
   it(
     'should not return identity encoding if * has q = 0 but identity explicitly has q > 0', 
     function()
-    assert.are.same(encodings('*;q=0, identity;q=0.5'), {'identity'})
+    assert.are.same(encodings('*;q=0,identity;q=0.5'), {'identity'})
   end)
 
 end)
@@ -119,21 +118,26 @@ end)
 local languages_conf = {
   {nil, {'en'}, {'en'}}, {'en', {'en'}, {'en'}}, {'*', {'en'}, {'en'}},
   {'en-US, en;q=0.8', {'en-US', 'en-GB'}, {'en-US', 'en-GB'}},
-  {'en-US, en-GB', {'en-US'}, {'en-US'}},
+  {'en-US, en-GB', {'en-US'}, {'en-US'}}, {'en', {'en', ''}, {'en'}},
   {'en', {'en-US'}, {'en-US'}}, {'en;q=0.8, es', {'en', 'es'}, {'es', 'en'}},
   {'en-US;q=0.8, es', {'en', 'es'}, {'es', 'en'}}, {'*, en;q=0', {'en', 'es'}, {'es'}},
-  {'en-US;q=0.8, es', nil, {'es', 'en-US'}}, {'*, en', {'es', 'en'}, {'en', 'es'}}
+  {'en-US;q=0.8, es', nil, {'es', 'en-US'}}, {'*, en', {'es', 'en'}, {'en', 'es'}},
+  {
+    'nl;q=0.5,fr,de,en,it,es,pt,no,se,fi,ro',
+    {'fr', 'de', 'en', 'it', 'es', 'pt', 'no', 'se', 'fi', 'ro', 'nl'},
+    {'fr', 'de', 'en', 'it', 'es', 'pt', 'no', 'se', 'fi', 'ro', 'nl'}
+  }
 }
 
-describe('language tests', function()
+describe('language tests #third', function()
 
   setup(function()
     -- accept, {provided,...}, {selected,...}
     for i = 1, #languages_conf do
       it(
         format(
-          'should return `%s` for accept-language `%s` with provided language `%s`', 
-          (languages_conf[i][3] and concat(languages_conf[i][3], ', ') 
+          '#%d - should return `%s` for accept-language `%s` with provided language `%s`', 
+          i, (languages_conf[i][3] and concat(languages_conf[i][3], ', ') 
             or tostring(languages_conf[i][3])),
           tostring(languages_conf[i][1]),
           (languages_conf[i][2] and concat(languages_conf[i][2], ', ') 
@@ -141,7 +145,7 @@ describe('language tests', function()
         ),
         function ()
           assert.are.same(
-            encodings(languages_conf[i][1], languages_conf[i][2]), languages_conf[i][3]
+            languages(languages_conf[i][1], languages_conf[i][2]), languages_conf[i][3]
           )
       end)
     end
@@ -161,9 +165,9 @@ describe('language tests', function()
 
 end)
 
-
 local media_conf = {
   {nil, {'text/html'}, {'text/html'}}, {'text/html', {'text/html'}, {'text/html'}},
+  {'text/html;level', {'text/html'}, {'text/html'}},
   {'*/*', {'text/html'}, {'text/html'}}, {'text/*', {'text/html'}, {'text/html'}},
   {'application/json, text/html', {'text/html'}, {'text/html'}},
   {'text/html;q=0.1', {'text/html'}, {'text/html'}}, {
@@ -199,22 +203,22 @@ local media_conf = {
   }, {
     'text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5',
     {'text/html;level=1', 'text/html', 'text/html;level=3', 'image/jpeg', 'text/html;level=2', 'text/plain'},
-    {'text/html;level=1', 'text/html', 'text/html;level=3', 'image/jpeg', 'text/html;level=2', 'text/plain'}
+    {'text/html;level=1', 'text/html', 'image/jpeg', 'text/html;level=2', 'text/plain', 'text/html;level=3'}
   }, {
     'text/html, application/xhtml+xml, */*', {'application/json', 'text/html'},
     {'text/html', 'application/json'}
   }
 }
 
-describe('media type tests', function()
+describe('media type tests #fourth', function()
 
   setup(function()
     -- accept, {provided,...}, {selected,...}
     for i = 1, #media_conf do
       it(
         format(
-          'should return `%s` for accept `%s` with provided media type `%s`', 
-          (media_conf[i][3] and concat(media_conf[i][3], ', ') 
+          '#%d - should return `%s` for accept `%s` with provided media type `%s`', 
+          i, (media_conf[i][3] and concat(media_conf[i][3], ', ') 
             or tostring(media_conf[i][3])),
           tostring(media_conf[i][1]),
           (media_conf[i][2] and concat(media_conf[i][2], ', ') 
@@ -222,7 +226,7 @@ describe('media type tests', function()
         ),
         function ()
           assert.are.same(
-            encodings(media_conf[i][1], media_conf[i][2]), media_conf[i][3]
+            mediatypes(media_conf[i][1], media_conf[i][2]), media_conf[i][3]
           )
       end)
     end
@@ -232,7 +236,7 @@ describe('media type tests', function()
     assert.are.same(mediatypes('*/*', {}), {})
   end)
 
-  it('should not return a media type when no media type is acceptable', function()
+  it('should not return a media type when no media type is acceptable fode', function()
     assert.are.same(mediatypes('application/json', {'text/html'}), {})
   end)
 
@@ -251,4 +255,3 @@ describe('media type tests', function()
   end)
 
 end)
-
