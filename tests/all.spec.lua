@@ -1,10 +1,8 @@
-local escambo, string, table =
+local Escambo, string, table =
   require [[..escambo]], require [[string]], require [[table]]
 
-local format, concat, charsets, encodings, languages, mediatypes =
-  string.format, table.concat, escambo.charsets, escambo.encodings,
-  escambo.languages, escambo.mimetypes
---
+local format, concat, escambo = string.format, table.concat, Escambo()
+
 local charsets_tests = {
   {nil, {'utf-8'}, {'utf-8'}}, {'utf-8', {'utf-8'}, {'utf-8'}},
   {'*', {'utf-8'}, {'utf-8'}}, {'utf-8', {'utf-8', 'ISO-8859-1'}, {'utf-8'}},
@@ -17,37 +15,45 @@ local charsets_tests = {
 
 describe('charset tests', function()
 
+  local charsets
+
+  teardown(function()
+    charsets = nil
+  end)
+
   setup(function()
-    -- accept, {provided,...}, {selected,...}
-    for i = 1, #charsets_tests do
-      it(
-        format(
-          '#%d - should return `%s` for accept-charset `%s` with provided charset `%s`', 
-          i, (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ') 
-            or tostring(charsets_tests[i][3])),
-          tostring(charsets_tests[i][1]),
-          (charsets_tests[i][2] and concat(charsets_tests[i][2], ', ') 
-            or tostring(charsets_tests[i][2]))
-        ),
-        function ()
-          assert.are.same(
-            charsets(charsets_tests[i][1], charsets_tests[i][2]), charsets_tests[i][3]
-          )
-      end)
-    end
+    charsets = escambo.charsets
   end)
 
   it('should not return a charset when no charset is provided', function()
-    assert.are.same(charsets('*', {}), {})
+    assert.are.same(charsets(escambo, {}, '*'), {})
   end)
 
   it('should not return a charset when no charset is acceptable', function()
-    assert.are.same(charsets('ISO-8859-1', {'utf-8'}), {})
+    assert.are.same(charsets(escambo, {'utf-8'}, 'ISO-8859-1'), {})
   end)
 
   it('should not return a charset with q = 0', function()
-    assert.are.same(charsets('utf-8;q=0', {'utf-8'}), {})
+    assert.are.same(charsets(escambo, {'utf-8'}, 'utf-8;q=0'), {})
   end)
+
+  for i = 1, #charsets_tests do
+    it(
+      format(
+        '#%d - should return `%s` for accept-charset `%s` with provided charset `%s`', 
+        i, (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ') 
+          or tostring(charsets_tests[i][3])),
+        tostring(charsets_tests[i][1]),
+        (charsets_tests[i][2] and concat(charsets_tests[i][2], ', ') 
+          or tostring(charsets_tests[i][2]))
+      ),
+      function ()
+        assert.are.same(
+          charsets(escambo, charsets_tests[i][2], charsets_tests[i][1]), charsets_tests[i][3]
+        )
+    end)
+  end
+
 end)
 
 local encodings_conf = {
@@ -71,47 +77,54 @@ local encodings_conf = {
 
 describe('encoding tests', function()
 
+  local encodings
+
+  teardown(function()
+    encodings = nil
+  end)
+
   setup(function()
-    -- accept, {provided,...}, {selected,...}
-    for i = 1, #encodings_conf do
-      it(
-        format(
-          '#%d - should return `%s` for accept-encoding `%s` with provided encoding `%s`',
-          i, (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ') 
-            or tostring(encodings_conf[i][3])),
-          tostring(encodings_conf[i][1]),
-          (encodings_conf[i][2] and concat(encodings_conf[i][2], ', ') 
-            or tostring(encodings_conf[i][2]))
-        ),
-        function ()
-          assert.are.same(
-            encodings(encodings_conf[i][1], encodings_conf[i][2]), encodings_conf[i][3]
-          )
-      end)
-    end
+    encodings = escambo.encodings
   end)
 
   it('should return identity encoding when no encoding is provided', function()
-    assert.are.same(encodings(nil, {}), {'identity'})
+    assert.are.same(encodings(escambo, {}, nil), {'identity'})
   end)
 
   it('should include the identity encoding even if not explicity listed', function()
-    assert.are.same(encodings('gzip'), {'gzip', 'identity'})
+    assert.are.same(encodings(escambo, nil, 'gzip'), {'gzip', 'identity'})
   end)
 
   it('should not return identity encoding if q = 0', function()
-    assert.are.same(encodings('identity;q=0'), {})
+    assert.are.same(encodings(escambo, nil, 'identity;q=0'), {})
   end)
 
   it('should not return identity encoding if * has q = 0', function()
-    assert.are.same(encodings('*;q=0'), {})
+    assert.are.same(encodings(escambo, nil, '*;q=0'), {})
   end)
 
   it(
     'should not return identity encoding if * has q = 0 but identity explicitly has q > 0', 
     function()
-    assert.are.same(encodings('*;q=0,identity;q=0.5'), {'identity'})
+    assert.are.same(encodings(escambo, nil, '*;q=0,identity;q=0.5'), {'identity'})
   end)
+
+  for i = 1, #encodings_conf do
+    it(
+      format(
+        '#%d - should return `%s` for accept-encoding `%s` with provided encoding `%s`',
+        i, (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ') 
+          or tostring(encodings_conf[i][3])),
+        tostring(encodings_conf[i][1]),
+        (encodings_conf[i][2] and concat(encodings_conf[i][2], ', ') 
+          or tostring(encodings_conf[i][2]))
+      ),
+      function ()
+        assert.are.same(
+          encodings(escambo, encodings_conf[i][2], encodings_conf[i][1]), encodings_conf[i][3]
+        )
+    end)
+  end
 
 end)
 
@@ -129,39 +142,46 @@ local languages_conf = {
   }
 }
 
-describe('language tests #third', function()
+describe('language tests', function()
+
+  local languages
+
+  teardown(function()
+    languages = nil
+  end)
 
   setup(function()
-    -- accept, {provided,...}, {selected,...}
-    for i = 1, #languages_conf do
-      it(
-        format(
-          '#%d - should return `%s` for accept-language `%s` with provided language `%s`', 
-          i, (languages_conf[i][3] and concat(languages_conf[i][3], ', ') 
-            or tostring(languages_conf[i][3])),
-          tostring(languages_conf[i][1]),
-          (languages_conf[i][2] and concat(languages_conf[i][2], ', ') 
-            or tostring(languages_conf[i][2]))
-        ),
-        function ()
-          assert.are.same(
-            languages(languages_conf[i][1], languages_conf[i][2]), languages_conf[i][3]
-          )
-      end)
-    end
+    languages = escambo.languages
   end)
 
   it('should not return a language when no is provided', function ()
-    assert.are.same(languages('*', {}), {})
+    assert.are.same(languages(escambo, {}, '*'), {})
   end)
 
   it('should not return a language when no language is acceptable', function ()
-    assert.are.same(languages('en', {'es'}), {})
+    assert.are.same(languages(escambo, {'es'}, 'en'), {})
   end)
 
   it('should not return a language with q = 0', function()
-    assert.are.same(languages('en;q=0', {'en'}), {})
+    assert.are.same(languages(escambo, {'en'}, 'en;q=0'), {})
   end)
+
+  for i = 1, #languages_conf do
+    it(
+      format(
+        '#%d - should return `%s` for accept-language `%s` with provided language `%s`', 
+        i, (languages_conf[i][3] and concat(languages_conf[i][3], ', ') 
+          or tostring(languages_conf[i][3])),
+        tostring(languages_conf[i][1]),
+        (languages_conf[i][2] and concat(languages_conf[i][2], ', ') 
+          or tostring(languages_conf[i][2]))
+      ),
+      function ()
+        assert.are.same(
+          languages(escambo, languages_conf[i][2], languages_conf[i][1]), languages_conf[i][3]
+        )
+    end)
+  end
 
 end)
 
@@ -210,48 +230,56 @@ local media_conf = {
   }
 }
 
-describe('media type tests #fourth', function()
+describe('media type tests', function()
+
+  local mediatypes
+
+  teardown(function()
+    mediatypes = nil
+  end)
 
   setup(function()
-    -- accept, {provided,...}, {selected,...}
-    for i = 1, #media_conf do
-      it(
-        format(
-          '#%d - should return `%s` for accept `%s` with provided media type `%s`', 
-          i, (media_conf[i][3] and concat(media_conf[i][3], ', ') 
-            or tostring(media_conf[i][3])),
-          tostring(media_conf[i][1]),
-          (media_conf[i][2] and concat(media_conf[i][2], ', ') 
-            or tostring(media_conf[i][2]))
-        ),
-        function ()
-          assert.are.same(
-            mediatypes(media_conf[i][1], media_conf[i][2]), media_conf[i][3]
-          )
-      end)
-    end
+    mediatypes = escambo.media_types
   end)
 
   it('should not return a media type when no media type provided', function()
-    assert.are.same(mediatypes('*/*', {}), {})
+    assert.are.same(mediatypes(escambo, {}, '*/*'), {})
   end)
 
-  it('should not return a media type when no media type is acceptable fode', function()
-    assert.are.same(mediatypes('application/json', {'text/html'}), {})
+  it('should not return a media type when no media type is acceptable', function()
+    assert.are.same(mediatypes(escambo, {'text/html'}, 'application/json'), {})
   end)
 
   it('should not return a media type with q = 0', function()
-    assert.are.same(mediatypes('text/html;q=0', {'text/html'}), {})
+    assert.are.same(mediatypes(escambo, {'text/html'}, 'text/html;q=0'), {})
   end)
 
   it('should handle extra slashes on query params', function()
     assert.are.same(
       mediatypes(
-        'application/xhtml+xml;profile="http://www.wapforum.org/xhtml"', 
-        {'application/xhtml+xml;profile="http://www.wapforum.org/xhtml"'}
+        escambo,
+        {'application/xhtml+xml;profile="http://www.wapforum.org/xhtml"'},
+        'application/xhtml+xml;profile="http://www.wapforum.org/xhtml"'
       ), 
       {'application/xhtml+xml;profile="http://www.wapforum.org/xhtml"'}
     )
   end)
+
+  for i = 1, #media_conf do
+    it(
+      format(
+        '#%d - should return `%s` for accept `%s` with provided media type `%s`', 
+        i, (media_conf[i][3] and concat(media_conf[i][3], ', ') 
+          or tostring(media_conf[i][3])),
+        tostring(media_conf[i][1]),
+        (media_conf[i][2] and concat(media_conf[i][2], ', ') 
+          or tostring(media_conf[i][2]))
+      ),
+      function ()
+        assert.are.same(
+          mediatypes(escambo, media_conf[i][2], media_conf[i][1]), media_conf[i][3]
+        )
+    end)
+  end
 
 end)
