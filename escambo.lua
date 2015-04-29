@@ -1,22 +1,29 @@
 --
--- Escambo, an HTTP content negotiator for Lua
+-- Escambo, an HTTP content negotiator, content-type parser and creator for Lua
 --
--- @author    xxleite (xico@simbio.se)
+-- @author    leite (xico@simbio.se)
 -- @license   MIT
 -- @copyright Simbiose 2015
 
-local string, table, class = require [[string]], require [[table]], require [[30log]]
+local string, table, tbx, class =
+  require [[string]], require [[table]], require [[pl.tablex]], require [[30log]]
 
-local Escambo, find, sub, gmatch, format, concat, insert, remove =
-  class(), string.find, string.sub, string.gmatch, string.format, 
-  table.concat, table.insert, table.remove
+local Escambo, find, sub, gmatch, format, len, lower, gsub, match, concat, insert, remove, t_sort =
+  class(), string.find, string.sub, string.gmatch, string.format, string.len, string.lower,
+  string.gsub, string.match, table.concat, table.insert, table.remove, tbx.sort
 
-local EMPTY, STAR, COMA, EQUAL, SSS, Q, SLASH, DASH, CONCAT_PARAMS, MIME_PATTERN, LANGUAGE_PATTERN, 
-  CHARSET_PATTERN = 
-  '', '*', ',', '=', '*/*', 'q', '/', '-', '%s;%s=%s', '%s*([^/=]+)([/=])([^;,%s]*)[;,]?%s*', 
-  '%s*([^%s-=;,]+)%s*([-=,]?)%s*([^%s;,]*)%s*', '%s*([^%s=;,]+)%s*([=,]?)%s*([^%s;,]*)%s*'
+local EMPTY, STAR, COMA, EQUAL, SSS, Q, SLASH, DASH, CONCAT_PARAMS, MIME_PATTERN, LANGUAGE_PATTERN,
+  CHARSET_PATTERN, PARAM, QUOTE_ESCAPE, QUOTED_PARAM, SUBTYPE_NAME, TYPE_NAME, TYPE, TYPE_SPACE,
+  TOKEN, TEXT, QUOTE =
+  '', '*', ',', '=', '*/*', 'q', '/', '-', '%s;%s=%s', '%s*([^/=]+)([/=])([^;,%s]*)[;,]?%s*',
+  '%s*([^%s-=;,]+)%s*([-=,]?)%s*([^%s;,]*)%s*', '%s*([^%s=;,]+)%s*([=,]?)%s*([^%s;,]*)%s*',
+  ";%s*([%w!#%$%%&'%*%+%-%.%^_`|~]+)%s*=%s*([%w!#%$%%&'%*%+%-%.%^_`|~]+)%s*;", '\\([%z\1-\127])',
+  ';%s*([%w!#%$%%&\'%*%+%-%.%^_`|~]+)%s*=?%s*"(.-[^\\])";?', '^[%w][%w!#%$&%^_%.%+%-]+$',
+  '^[%w][%w!#%$&%^_%-]+$', '^([%w][%w!#%$&%^_%-]+)/([%w][%w!#%$&%^_%.%+%-]+)$',
+  '^%s*([%w][%w!#%$&%^_%-]+)/([%w][%w!#%$&%^_%.%+%-]+)%s*;', '^[%w!#%$%%&\'%*%+%-%.%^_`|~]+$',
+  '^[\32-\126\128-\255]+$', '(["])'
 
-Escambo.__name, string, table, class = 'Escambo', nil, nil, nil
+Escambo.__name, string, table, tbx, class = 'Escambo', nil, nil, nil, nil
 
 -- order array with insertation sort and exclude nodes with quality below or equals zero
 --
@@ -49,7 +56,7 @@ local function order_array(list, join)
 
     i         = i + 1
     list[i]   = key
-    result[i] = (not key[3] or key[3] == EMPTY) and key[1] or 
+    result[i] = (not key[3] or key[3] == EMPTY) and key[1] or
       concat{key[1], join, key[3], key[4] or ''}
 
     ::followup::
@@ -78,6 +85,34 @@ local function index_it(index, prefix, suffix, params, value)
   end
 end
 
+-- get "response"/"request" object content type value
+--
+-- @table  object
+-- @return string
+
+local function get_content_type(object)
+  if not object then
+    return nil
+  end
+  return (object.get_header and object.get_header('content-type')) or
+    (object.headers and object.headers['content-type']) or nil
+end
+
+-- escape quotes and quote string
+--
+-- @string string
+-- @return string
+
+local function quote(string)
+  if find(string, TOKEN) then
+    return true, string
+  end
+  if len(string) > 0 and not find(string, TEXT) then
+    return false, 'invalid parameter value'
+  end
+  return true, concat {'"', gsub(string, QUOTE, '\\%1'), '"'}
+end
+
 -- helps language and mimetype methods to parse accept string in a loop
 --
 -- @string       prefix
@@ -92,7 +127,7 @@ end
 local function language_parser_helper(prefix, suffix, selected, provide, index, opts, last, language)
   if last then
 
-    local provide_index = (opts.provided and provide[last[1]] and provide[last[1]][last[3]] and 
+    local provide_index = (opts.provided and provide[last[1]] and provide[last[1]][last[3]] and
       (language or provide[last[1]][last[3]][last[4]]))
 
     if language and opts.provided then
@@ -120,7 +155,7 @@ local function language_parser_helper(prefix, suffix, selected, provide, index, 
   opts.last = {prefix, 1, suffix, EMPTY}
 end
 
--- parse provided media 
+-- parse provided media
 --
 -- @param  input
 -- @table  result
@@ -231,7 +266,7 @@ local function parse_charset(accept, provided, is_encoding)
     end
   end
 
-  if is_encoding and ((provide.identity and (not index.identity or not opts.provided)) or 
+  if is_encoding and ((provide.identity and (not index.identity or not opts.provided)) or
     (not opts.provided and not index.identity and (not opts.quality or opts.quality > 0))) then
     insert(selected, {'identity', 0.0001})
   end
@@ -367,6 +402,120 @@ end
 
 function Escambo:__init(accept)
   self.accept = accept
+end
+
+-- parse content-type string
+--
+-- @string       string
+-- @boolean[opt] expand
+-- @return       boolean, string|table
+
+function Escambo.parse(string, expand)
+  if not string then
+    return false, 'argument string is required'
+  end
+  if 'table' == type(string) then
+    string = get_content_type(string)
+  end
+  if 'string' ~= type(string) then
+    return false, 'argument string is required to be a string'
+  end
+
+  local opts, string, lenght, _, index = {parameters={}}, string .. ';', len(string), 0, 0
+  _, index, opts.type, opts.subtype    = find(string, TYPE_SPACE)
+
+  if not opts.type then
+    return false, 'invalid media type'
+  end
+
+  if expand then
+    opts.subtype, opts.suffix = match(lower(opts.subtype), '^([^%+$]+)%+?([^$]*)$')
+    opts.type, opts.suffix    = lower(opts.type), opts.suffix ~= '' and opts.suffix or nil
+  else
+    opts.type    = lower(format('%s/%s', opts.type, opts.subtype))
+    opts.subtype = nil
+  end
+
+  if (lenght - index) > 3 then
+    local key, val, last = '', '', index
+
+    while _ do
+      _, index, key, val = find(string, QUOTED_PARAM, last)
+      if not _ then
+        _, index, key, val = find(string, PARAM, last)
+      else
+        val = gsub(val, QUOTE_ESCAPE, '%1')
+      end
+
+      if not _ or (_ - last) > 3 then
+        break
+      end
+      opts.parameters[lower(key)], last = val, index
+    end
+
+    if last < 2 or (last and (lenght - last) > 3) or (_ and (_ - last) > 3) then
+      return false, 'invalid parameter format'
+    end
+  else
+    opts.parameters = nil
+  end
+
+  return true, opts
+end
+
+-- format content-type "object"
+--
+-- @table opts
+-- @return boolean, string
+
+function Escambo.format(opts)
+  if not opts then
+    return false, 'argument is required'
+  end
+  if not opts.type then
+    return false, 'invalid type'
+  end
+
+  local string, _ = '', false
+
+  if find(opts.type, '/', 1, true) then
+    if not find(opts.type, TYPE) then
+      return false, 'invalid type'
+    end
+    string = opts.type
+  else
+    if not find(opts.type, TYPE_NAME) then
+      return false, 'invalid type'
+    end
+    if not opts.subtype or not find(opts.subtype, SUBTYPE_NAME) then
+      return false, 'invalid subtype'
+    end
+    string = format('%s/%s', opts.type, opts.subtype)
+  end
+
+  if opts.suffix then
+    if not find(opts.suffix, TYPE_NAME) then
+      return false, 'invalid suffix'
+    end
+    string = format('%s+%s', string, opts.suffix)
+  end
+
+  if not opts.parameters then
+    return true, string
+  end
+
+  for key, val in t_sort(opts.parameters) do
+    if not find(key, TOKEN) then
+      return false, 'invalid parameter name'
+    end
+    _, val = quote(val)
+    if not _ then
+      return _, val
+    end
+    string = format('%s; %s=%s', string, key, val)
+  end
+
+  return true, string
 end
 
 -- get single charset 

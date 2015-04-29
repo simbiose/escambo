@@ -40,11 +40,11 @@ describe('charset tests', function()
   for i = 1, #charsets_tests do
     it(
       format(
-        '#%d - should return `%s` for accept-charset `%s` with provided charset `%s`', 
-        i, (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ') 
+        '#%d - should return `%s` for accept-charset `%s` with provided charset `%s`',
+        i, (charsets_tests[i][3] and concat(charsets_tests[i][3], ', ')
           or tostring(charsets_tests[i][3])),
         tostring(charsets_tests[i][1]),
-        (charsets_tests[i][2] and concat(charsets_tests[i][2], ', ') 
+        (charsets_tests[i][2] and concat(charsets_tests[i][2], ', ')
           or tostring(charsets_tests[i][2]))
       ),
       function ()
@@ -104,7 +104,7 @@ describe('encoding tests', function()
   end)
 
   it(
-    'should not return identity encoding if * has q = 0 but identity explicitly has q > 0', 
+    'should not return identity encoding if * has q = 0 but identity explicitly has q > 0',
     function()
     assert.are.same(encodings(escambo, nil, '*;q=0,identity;q=0.5'), {'identity'})
   end)
@@ -113,10 +113,10 @@ describe('encoding tests', function()
     it(
       format(
         '#%d - should return `%s` for accept-encoding `%s` with provided encoding `%s`',
-        i, (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ') 
+        i, (encodings_conf[i][3] and concat(encodings_conf[i][3], ', ')
           or tostring(encodings_conf[i][3])),
         tostring(encodings_conf[i][1]),
-        (encodings_conf[i][2] and concat(encodings_conf[i][2], ', ') 
+        (encodings_conf[i][2] and concat(encodings_conf[i][2], ', ')
           or tostring(encodings_conf[i][2]))
       ),
       function ()
@@ -169,11 +169,11 @@ describe('language tests', function()
   for i = 1, #languages_conf do
     it(
       format(
-        '#%d - should return `%s` for accept-language `%s` with provided language `%s`', 
-        i, (languages_conf[i][3] and concat(languages_conf[i][3], ', ') 
+        '#%d - should return `%s` for accept-language `%s` with provided language `%s`',
+        i, (languages_conf[i][3] and concat(languages_conf[i][3], ', ')
           or tostring(languages_conf[i][3])),
         tostring(languages_conf[i][1]),
-        (languages_conf[i][2] and concat(languages_conf[i][2], ', ') 
+        (languages_conf[i][2] and concat(languages_conf[i][2], ', ')
           or tostring(languages_conf[i][2]))
       ),
       function ()
@@ -203,7 +203,7 @@ local media_conf = {
   {'text/*, text/html;q=0.5', {'text/html', 'text/plain'}, {'text/plain', 'text/html'}},
   {
     'application/json, */*; q=0.01',
-    {'text/html', 'application/json'}, 
+    {'text/html', 'application/json'},
     {'application/json', 'text/html'}
   }, {
     'application/vnd.example;attribute=value',
@@ -268,11 +268,11 @@ describe('media type tests', function()
   for i = 1, #media_conf do
     it(
       format(
-        '#%d - should return `%s` for accept `%s` with provided media type `%s`', 
-        i, (media_conf[i][3] and concat(media_conf[i][3], ', ') 
+        '#%d - should return `%s` for accept `%s` with provided media type `%s`',
+        i, (media_conf[i][3] and concat(media_conf[i][3], ', ')
           or tostring(media_conf[i][3])),
         tostring(media_conf[i][1]),
-        (media_conf[i][2] and concat(media_conf[i][2], ', ') 
+        (media_conf[i][2] and concat(media_conf[i][2], ', ')
           or tostring(media_conf[i][2]))
       ),
       function ()
