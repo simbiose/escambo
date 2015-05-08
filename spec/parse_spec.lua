@@ -1,5 +1,5 @@
 
-require [[tests.helper]]
+require [[spec.helper]]
 
 local format = require('string').format
 

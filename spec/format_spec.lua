@@ -1,5 +1,5 @@
 
-require [[tests.helper]]
+require [[spec.helper]]
 
 describe('escambo.format(object)', function()
 
