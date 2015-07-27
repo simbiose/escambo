@@ -421,8 +421,8 @@ function Escambo.parse(string, expand)
     return false, 'argument string is required to be a string'
   end
 
-  local opts, string, lenght, _, index = {parameters={}}, string .. ';', len(string), 0, 0
-  _, index, opts.type, opts.subtype    = find(string, TYPE_SPACE)
+  local opts, string, lenght, start, index = {parameters={}}, string .. ';', len(string), 0, 0
+  start, index, opts.type, opts.subtype    = find(string, TYPE_SPACE)
 
   if not opts.type then
     return false, 'invalid media type'
@@ -439,21 +439,21 @@ function Escambo.parse(string, expand)
   if (lenght - index) > 3 then
     local key, val, last = '', '', index
 
-    while _ do
-      _, index, key, val = find(string, QUOTED_PARAM, last)
-      if not _ then
-        _, index, key, val = find(string, PARAM, last)
+    while start do
+      start, index, key, val = find(string, QUOTED_PARAM, last)
+      if not start then
+        start, index, key, val = find(string, PARAM, last)
       else
         val = gsub(val, QUOTE_ESCAPE, '%1')
       end
 
-      if not _ or (_ - last) > 3 then
+      if not start or (start - last) > 3 then
         break
       end
       opts.parameters[lower(key)], last = val, index
     end
 
-    if last < 2 or (last and (lenght - last) > 3) or (_ and (_ - last) > 3) then
+    if last < 2 or (last and (lenght - last) > 3) or (start and (start - last) > 3) then
       return false, 'invalid parameter format'
     end
   else
