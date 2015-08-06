@@ -15,7 +15,7 @@ branches:
     - master
 
 before_install:
-  - curl http://rocks.simbio.se/travis.sh | bash
+  - source <(curl -s http://rocks.simbio.se/travis.sh 2> /dev/null)
   - luarocks install busted
   - luarocks install 30log
   - luarocks install penlight
