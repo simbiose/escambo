@@ -1,0 +1,28 @@
+language: c
+
+sudo: false
+
+env:
+  matrix:
+    - LUA=lua5.1
+    - LUA=lua5.2
+    - LUA=lua5.3
+    - LUA=luajit
+    - LUA=luajit2.1
+
+branches:
+  only:
+    - master
+
+before_install:
+  - curl http://rocks.simbio.se/travis.sh | bash
+  - luarocks install busted
+  - luarocks install 30log
+  - luarocks install penlight
+
+script: busted
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
