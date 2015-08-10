@@ -8,9 +8,10 @@
 local string, table, tbx, class =
   require [[string]], require [[table]], require [[pl.tablex]], require [[30log]]
 
-local Escambo, find, sub, gmatch, format, len, lower, gsub, match, concat, insert, remove, t_sort =
+local Escambo, find, sub, gmatch, format, len, lower, gsub, match, concat, insert, remove, t_sort,
+  tonumber, type =
   class(), string.find, string.sub, string.gmatch, string.format, string.len, string.lower,
-  string.gsub, string.match, table.concat, table.insert, table.remove, tbx.sort
+  string.gsub, string.match, table.concat, table.insert, table.remove, tbx.sort, tonumber, type
 
 local EMPTY, STAR, COMA, EQUAL, SSS, Q, SLASH, DASH, CONCAT_PARAMS, MIME_PATTERN, LANGUAGE_PATTERN,
   CHARSET_PATTERN, PARAM, QUOTE_ESCAPE, QUOTED_PARAM, SUBTYPE_NAME, TYPE_NAME, TYPE, TYPE_SPACE,
@@ -256,9 +257,10 @@ local function parse_charset(accept, provided, is_encoding)
   end
 
   if opts.provided and opts.starred then
-    local x = opts.quality and (opts.quality + 0.01) or 0.01
-    for k in pairs(provide) do
-      if not index[k] then
+    local x, k = opts.quality and (opts.quality + 0.01) or 0.01, ''
+    for i = 1, #provided do
+      k = provided[i]
+      if provide[k] and not index[k] then
         x = x - 0.001
         index[k] = true
         insert(selected, {k, x})

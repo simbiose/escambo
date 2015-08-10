@@ -13,7 +13,6 @@ source = {
 }
 
 dependencies = {
-  "lua >= 5.1, < 5.3",
   "30log",
   "penlight"
 }
